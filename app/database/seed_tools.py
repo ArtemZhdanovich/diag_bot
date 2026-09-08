@@ -7,17 +7,18 @@ from app.database.session import async_session_factory
 
 
 async def seed_tools() -> None:
+    """Наполняет базу справочником инструментов."""
     async with async_session_factory() as session:
         existing = await session.scalar(
             select(System.id)
             .where(
-                System.type == "tool",
-                System.name == "Гидросистема погрузочного оборудования",
+                System.type == 'tool',
+                System.name == 'Гидросистема погрузочного оборудования',
             )
         )
 
         if existing is not None:
-            print("Тестовые данные инструментов уже существуют.")
+            print('Тестовые данные инструментов уже существуют.')
             return
 
         # ---------------------------------------------------------
@@ -25,20 +26,20 @@ async def seed_tools() -> None:
         # ---------------------------------------------------------
 
         loading = System(
-            name="Гидросистема погрузочного оборудования",
-            type="tool",
+            name='Гидросистема погрузочного оборудования',
+            type='tool',
             sort_order=1,
         )
 
         steering = System(
-            name="Гидросистема рулевого управления",
-            type="tool",
+            name='Гидросистема рулевого управления',
+            type='tool',
             sort_order=2,
         )
 
         brakes = System(
-            name="Гидросистема тормозов",
-            type="tool",
+            name='Гидросистема тормозов',
+            type='tool',
             sort_order=3,
         )
 
@@ -55,26 +56,26 @@ async def seed_tools() -> None:
         # ---------------------------------------------------------
 
         pressure_gauge = Tool(
-            name="Манометр",
-            description="Для проверки давления в гидросистеме.",
+            name='Манометр',
+            description='Для проверки давления в гидросистеме.',
             sort_order=1,
         )
 
         multimeter = Tool(
-            name="Мультиметр",
-            description="Для проверки электрических цепей и датчиков.",
+            name='Мультиметр',
+            description='Для проверки электрических цепей и датчиков.',
             sort_order=2,
         )
 
         wrench_set = Tool(
-            name="Набор гаечных ключей",
-            description="Для демонтажа и монтажа гидравлических компонентов.",
+            name='Набор гаечных ключей',
+            description='Для демонтажа и монтажа гидравлических компонентов.',
             sort_order=3,
         )
 
         diagnostic_kit = Tool(
-            name="Комплект для диагностики гидросистемы",
-            description="Комплект измерительных приборов и переходников.",
+            name='Комплект для диагностики гидросистемы',
+            description='Комплект измерительных приборов и переходников.',
             sort_order=4,
         )
 
@@ -93,25 +94,25 @@ async def seed_tools() -> None:
 
         loading_pump = Node(
             system_id=loading.id,
-            name="Гидравлический насос",
+            name='Гидравлический насос',
             sort_order=1,
         )
 
         loading_filter = Node(
             system_id=loading.id,
-            name="Гидравлический фильтр",
+            name='Гидравлический фильтр',
             sort_order=2,
         )
 
         steering_pump = Node(
             system_id=steering.id,
-            name="Насос рулевого управления",
+            name='Насос рулевого управления',
             sort_order=1,
         )
 
         brake_unit = Node(
             system_id=brakes.id,
-            name="Тормозной гидроузел",
+            name='Тормозной гидроузел',
             sort_order=1,
         )
 
@@ -155,10 +156,10 @@ async def seed_tools() -> None:
 
         await session.commit()
 
-        print("Тестовые данные инструментов успешно добавлены.")
+        print('Тестовые данные инструментов успешно добавлены.')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import asyncio
 
     asyncio.run(seed_tools())

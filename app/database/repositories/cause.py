@@ -10,6 +10,7 @@ async def get_causes(
     session: AsyncSession,
     problem_id: int,
 ) -> list[Cause]:
+    """Причины проблемы по возрастанию порядка."""
     result = await session.scalars(
         select(Cause)
         .where(
@@ -26,6 +27,7 @@ async def get_cause(
     session: AsyncSession,
     cause_id: int,
 ) -> Cause | None:
+    """Причина по id или None."""
     result = await session.scalar(
         select(Cause)
         .options(

@@ -1,273 +1,222 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup
+
+from app.bot.callbacks import AdminCB, MenuCB
+from app.bot.keyboards.common import button, stack, with_nav
+from app.database.models.system import System
 
 
 def admin_main_keyboard() -> InlineKeyboardMarkup:
+    """Главное меню администратора."""
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🩺 Диагностика",
-                    callback_data="admin:diagnosis",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🧰 Инструменты",
-                    callback_data="admin:tools",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="👥 Пользователи",
-                    callback_data="admin:users",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ Назад",
-                    callback_data="menu:main",
-                )
-            ],
-        ]
+        inline_keyboard=with_nav(
+            stack(
+                button(
+                    '🩺 Диагностика',
+                    AdminCB(action='diagnosis').pack(),
+                ),
+                button(
+                    '🧰 Инструменты',
+                    AdminCB(action='tools').pack(),
+                ),
+                button(
+                    '👥 Пользователи',
+                    AdminCB(action='users').pack(),
+                ),
+            ),
+            back=button('⬅️ Назад', MenuCB(action='main').pack()),
+            menu=False,
+        )
     )
 
 
 def admin_back_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура с единственной кнопкой «в админку»."""
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="⬅️ В админку",
-                    callback_data="menu:admin",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏠 В меню",
-                    callback_data="menu:main",
-                )
-            ],
-        ]
+        inline_keyboard=with_nav(
+            [],
+            back=button(
+                '⬅️ В админку',
+                MenuCB(action='admin').pack(),
+            ),
+        )
     )
+
 
 def admin_diagnosis_keyboard() -> InlineKeyboardMarkup:
+    """Меню раздела администрирования диагностики."""
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🗂 Системы",
-                    callback_data="admin:diagnosis:systems",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔴 Проблемы",
-                    callback_data="admin:diagnosis:problems",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⚠️ Причины",
-                    callback_data="admin:diagnosis:causes",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="📋 Карточки",
-                    callback_data="admin:diagnosis:cards",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ В админку",
-                    callback_data="menu:admin",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏠 В меню",
-                    callback_data="menu:main",
-                )
-            ],
-        ]
+        inline_keyboard=with_nav(
+            stack(
+                button(
+                    '🗂 Системы',
+                    AdminCB(action='diagnosis_systems').pack(),
+                ),
+                button(
+                    '🔴 Проблемы',
+                    AdminCB(action='diagnosis_problems').pack(),
+                ),
+                button(
+                    '⚠️ Причины',
+                    AdminCB(action='diagnosis_causes').pack(),
+                ),
+                button(
+                    '📋 Карточки',
+                    AdminCB(action='diagnosis_cards').pack(),
+                ),
+            ),
+            back=button(
+                '⬅️ В админку',
+                MenuCB(action='admin').pack(),
+            ),
+        )
     )
+
 
 def admin_systems_keyboard(
-    systems,
+    systems: list[System],
 ) -> InlineKeyboardMarkup:
-    buttons = []
-
-    for system in systems:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=f"🗂 {system.name}",
-                    callback_data=f"admin:system:{system.id}",
-                )
-            ]
-        )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="➕ Добавить систему",
-                callback_data="admin:system:add",
-            )
-        ]
-    )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="🗑 Отключённые системы",
-                callback_data="admin:systems:inactive",
-            )
-        ]
-    )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="⬅️ Назад",
-                callback_data="admin:diagnosis",
-            )
-        ]
-    )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="🏠 В меню",
-                callback_data="menu:main",
-            )
-        ]
-    )
-
+    """Список активных систем с кнопкой добавления."""
     return InlineKeyboardMarkup(
-        inline_keyboard=buttons
+        inline_keyboard=with_nav(
+            stack(
+                *(
+                    button(
+                        f'🗂 {system.name}',
+                        AdminCB(
+                            action='system',
+                            id=system.id,
+                        ).pack(),
+                    )
+                    for system in systems
+                ),
+                button(
+                    '➕ Добавить систему',
+                    AdminCB(action='system_add').pack(),
+                ),
+                button(
+                    '🗑 Отключённые системы',
+                    AdminCB(action='systems_inactive').pack(),
+                ),
+            ),
+            back=button(
+                '⬅️ В админку',
+                AdminCB(action='diagnosis').pack(),
+            ),
+        )
     )
+
 
 def admin_system_card_keyboard(
     system_id: int,
 ) -> InlineKeyboardMarkup:
+    """Клавиатура карточки активной системы."""
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="✏️ Изменить",
-                    callback_data=f"admin:system:edit:{system_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⛔ Отключить",
-                    callback_data=f"admin:system:deactivate:{system_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔴 Проблемы",
-                    callback_data=f"admin:system:problems:{system_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ Назад",
-                    callback_data="admin:diagnosis:systems",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏠 В меню",
-                    callback_data="menu:main",
-                )
-            ],
-        ]
+        inline_keyboard=with_nav(
+            stack(
+                button(
+                    '✏️ Редактировать',
+                    AdminCB(
+                        action='system_edit',
+                        id=system_id,
+                    ).pack(),
+                ),
+                button(
+                    '⛔ Отключить',
+                    AdminCB(
+                        action='system_deactivate',
+                        id=system_id,
+                    ).pack(),
+                ),
+                button(
+                    '🔴 Проблемы',
+                    AdminCB(
+                        action='system_problems',
+                        id=system_id,
+                    ).pack(),
+                ),
+            ),
+            back=button(
+                '⬅️ Назад',
+                AdminCB(action='diagnosis_systems').pack(),
+            ),
+        )
     )
 
-def admin_inactive_systems_keyboard(systems) -> InlineKeyboardMarkup:
-    buttons = []
 
-    for system in systems:
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"🗑 {system.name}",
-                callback_data=f"admin:inactive_system:{system.id}",
-            )
-        ])
-
-    buttons.append([
-        InlineKeyboardButton(
-            text="⬅️ Назад",
-            callback_data="admin:diagnosis:systems",
-        )
-    ])
-
-    buttons.append([
-        InlineKeyboardButton(
-            text="🏠 В меню",
-            callback_data="menu:main",
-        )
-    ])
-
+def admin_inactive_systems_keyboard(
+    systems: list[System],
+) -> InlineKeyboardMarkup:
+    """Список отключённых систем."""
     return InlineKeyboardMarkup(
-        inline_keyboard=buttons
+        inline_keyboard=with_nav(
+            stack(
+                *(
+                    button(
+                        f'🗑 {system.name}',
+                        AdminCB(
+                            action='inactive_system',
+                            id=system.id,
+                        ).pack(),
+                    )
+                    for system in systems
+                ),
+            ),
+            back=button(
+                '⬅️ Назад',
+                AdminCB(action='diagnosis_systems').pack(),
+            ),
+        )
     )
+
 
 def admin_inactive_system_card_keyboard(
     system_id: int,
 ) -> InlineKeyboardMarkup:
+    """Клавиатура карточки отключённой системы."""
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="♻️ Восстановить",
-                    callback_data=f"admin:system:restore:{system_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="❌ Удалить окончательно",
-                    callback_data=f"admin:system:delete:{system_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ Назад",
-                    callback_data="admin:systems:inactive",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏠 В меню",
-                    callback_data="menu:main",
-                )
-            ],
-        ]
+        inline_keyboard=with_nav(
+            stack(
+                button(
+                    '♻️ Восстановить',
+                    AdminCB(
+                        action='system_restore',
+                        id=system_id,
+                    ).pack(),
+                ),
+                button(
+                    '❌ Удалить окончательно',
+                    AdminCB(
+                        action='system_delete',
+                        id=system_id,
+                    ).pack(),
+                ),
+            ),
+            back=button(
+                '⬅️ Назад',
+                AdminCB(action='systems_inactive').pack(),
+            ),
+        )
     )
+
 
 def admin_delete_system_confirm_keyboard(
     system_id: int,
 ) -> InlineKeyboardMarkup:
+    """Подтверждение окончательного удаления системы."""
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="❌ Да, удалить окончательно",
-                    callback_data=f"admin:system:delete_confirm:{system_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ Отмена",
-                    callback_data=f"admin:inactive_system:{system_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏠 В меню",
-                    callback_data="menu:main",
-                )
-            ],
-        ]
+        inline_keyboard=with_nav(
+            stack(
+                button(
+                    '❌ Да, удалить окончательно',
+                    AdminCB(
+                        action='system_delete_confirm',
+                        id=system_id,
+                    ).pack(),
+                ),
+            ),
+            back=button(
+                '⬅️ Отмена',
+                AdminCB(action='inactive_system', id=system_id).pack(),
+            ),
+        )
     )

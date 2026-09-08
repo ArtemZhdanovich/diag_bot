@@ -1,17 +1,18 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+# Важно: импортируем пакет моделей целиком, чтобы ВСЕ модели были
+# зарегистрированы в Base.metadata до запуска autogenerate. Раньше здесь
+# были точечные импорты только 5 моделей, из-за чего alembic «не видел»
+# Node/Tool/User/node_tools и следующая автогенерация создала бы
+# drop_table для их таблиц.
+import app.database.models  # noqa: F401
 
 from app.config import get_settings
 from app.database.base import Base
-from app.database.models.system import System
-from app.database.models.problem import Problem
-from app.database.models.cause import Cause
-from app.database.models.cause_card import CauseCard
-from app.database.models.cause_image import CauseImage
 
-from alembic import context
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

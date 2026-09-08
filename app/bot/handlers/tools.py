@@ -1,8 +1,21 @@
-from aiogram import Router
+from html import escape as esc
+
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.callbacks import MenuCB, ToolsCB
+from app.bot.helpers import (
+    CATEGORY_NOT_FOUND,
+    NODE_NOT_FOUND,
+    alert,
+    get_node_or_alert,
+    get_system_or_alert,
+    refresh,
+    show,
+    unpack_id,
+)
 from app.bot.keyboards.tools import (
     node_card_keyboard,
     nodes_keyboard,
@@ -11,8 +24,8 @@ from app.bot.keyboards.tools import (
     tools_categories_keyboard,
 )
 from app.bot.states.tools import ToolsStates
-from app.database.repositories.node import get_node, get_nodes
-from app.database.repositories.system import get_system
+from app.database.models import System
+from app.database.repositories.node import get_nodes
 from app.services.tools import (
     format_tools_card,
     get_all_tool_nodes,
@@ -25,126 +38,75 @@ from app.services.tools import (
 router = Router()
 
 
-@router.callback_query(
-    lambda callback: callback.data == "menu:tools"
-)
-async def open_tools(
-    callback: CallbackQuery,
-    state: FSMContext,
-) -> None:
-    await state.clear()
-
-    await callback.message.edit_text(
-        "🧰 <b>Инструмент</b>\n\n"
-        "Выберите категорию:",
-        reply_markup=tools_categories_keyboard(),
+async def show_tools_categories(callback: CallbackQuery) -> None:
+    """Экран категорий — общий для входа и кнопки «Назад»."""
+    await show(
+        callback,
+        '🧰 <b>Инструмент</b>\n\n'
+        'Выберите категорию:',
+        tools_categories_keyboard(),
     )
 
-    await callback.answer()
 
-
-@router.callback_query(
-    lambda callback: callback.data.startswith("tools:category:")
-)
-async def select_tools_category(
+async def show_system_nodes(
     callback: CallbackQuery,
-    state: FSMContext,
     session: AsyncSession,
+    system: System,
 ) -> None:
-    category = callback.data.split(":")[-1]
-
-    if category == "nodes":
-        await open_nodes_selection(
-            callback,
-            state,
-            session,
-        )
-        return
-
-    if category == "all":
-        await open_all_tools(
-            callback,
-            session,
-        )
-        return
-
-    system = await get_tool_system(
-        session,
-        category,
-    )
-
-    if system is None:
-        await callback.answer(
-            "Категория пока не заполнена.",
-            show_alert=True,
-        )
-        return
-
-    nodes = await get_nodes(
-        session,
-        system.id,
-    )
+    """Список узлов категории — общий для выбора категории и «Назад»."""
+    nodes = await get_nodes(session, system.id)
 
     if not nodes:
-        await callback.message.edit_text(
-            f"🧰 <b>{system.name}</b>\n\n"
-            "В этой категории пока нет узлов.",
-            reply_markup=tool_card_keyboard(),
+        await show(
+            callback,
+            f'🧰 <b>{esc(system.name)}</b>\n\n'
+            'В этой категории пока нет узлов.',
+            tool_card_keyboard(),
         )
-
-        await callback.answer()
         return
 
-    await callback.message.edit_text(
-        f"🧰 <b>{system.name}</b>\n\n"
-        "Выберите узел:",
-        reply_markup=nodes_keyboard(nodes),
+    await show(
+        callback,
+        f'🧰 <b>{esc(system.name)}</b>\n\n'
+        'Выберите узел:',
+        nodes_keyboard(nodes),
     )
-
-    await callback.answer()
 
 
 async def open_all_tools(
     callback: CallbackQuery,
     session: AsyncSession,
 ) -> None:
-    tools = await get_all_tools(
-        session,
-    )
+    """Показывает сводную карточку всех инструментов."""
+    tools = await get_all_tools(session)
 
     if not tools:
-        await callback.message.edit_text(
-            "🧰 <b>Все инструменты</b>\n\n"
-            "Инструменты пока не добавлены.",
-            reply_markup=tool_card_keyboard(),
+        await show(
+            callback,
+            '🧰 <b>Все инструменты</b>\n\n'
+            'Инструменты пока не добавлены.',
+            tool_card_keyboard(),
         )
-
-        await callback.answer()
         return
 
     text = [
-        "🧰 <b>Все инструменты</b>",
-        "",
+        '🧰 <b>Все инструменты</b>',
+        '',
     ]
 
     for index, tool in enumerate(tools, start=1):
-        text.append(
-            f"{index}. <b>{tool.name}</b>"
-        )
+        text.append(f'{index}. <b>{esc(tool.name)}</b>')
 
         if tool.description:
-            text.append(
-                f"   {tool.description}"
-            )
+            text.append(f'   {esc(tool.description)}')
 
-        text.append("")
+        text.append('')
 
-    await callback.message.edit_text(
-        "\n".join(text),
-        reply_markup=tool_card_keyboard(),
+    await show(
+        callback,
+        '\n'.join(text),
+        tool_card_keyboard(),
     )
-
-    await callback.answer()
 
 
 async def open_nodes_selection(
@@ -152,261 +114,198 @@ async def open_nodes_selection(
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
-    nodes = await get_all_tool_nodes(
-        session,
-    )
+    """Начинает выбор узлов для сводной карточки."""
+    nodes = await get_all_tool_nodes(session)
 
     if not nodes:
-        await callback.message.edit_text(
-            "⚙️ <b>Узлы</b>\n\n"
-            "Узлы пока не добавлены.",
-            reply_markup=tool_card_keyboard(),
+        await show(
+            callback,
+            '⚙️ <b>Узлы</b>\n\n'
+            'Узлы пока не добавлены.',
+            tool_card_keyboard(),
         )
-
-        await callback.answer()
         return
 
-    await state.set_state(
-        ToolsStates.selecting_nodes
+    await state.set_state(ToolsStates.selecting_nodes)
+    await state.update_data(selected_node_ids=[])
+
+    await show(
+        callback,
+        '⚙️ <b>Выбор узлов</b>\n\n'
+        'Выберите один или несколько узлов:',
+        nodes_selection_keyboard(nodes, set()),
     )
 
-    await state.update_data(
-        selected_node_ids=[]
+
+@router.callback_query(MenuCB.filter(F.action == 'tools'))
+async def open_tools(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    """Открывает раздел инструментов."""
+    await state.clear()
+
+    await show_tools_categories(callback)
+
+
+@router.callback_query(ToolsCB.filter(F.action == 'category'))
+async def select_tools_category(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """Обрабатывает выбор категории инструментов."""
+    if callback.data is None:
+        return
+
+    callback_data = ToolsCB.unpack(callback.data)
+
+    category = callback_data.category or ''
+
+    if category == 'nodes':
+        await open_nodes_selection(callback, state, session)
+        return
+
+    if category == 'all':
+        await open_all_tools(callback, session)
+        return
+
+    system = await get_tool_system(session, category)
+
+    if system is None:
+        await alert(callback, 'Категория пока не заполнена.')
+        return
+
+    await show_system_nodes(callback, session, system)
+
+
+@router.callback_query(ToolsCB.filter(F.action == 'node'))
+async def open_tool_node(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """Показывает карточку узла с его инструментами."""
+    if (node_id := unpack_id(callback, ToolsCB)) is None:
+        await alert(callback, NODE_NOT_FOUND)
+        return
+
+    node = await get_node_or_alert(session, callback, node_id)
+
+    if node is None:
+        return
+
+    tools = [tool for tool in node.tools if tool.is_active]
+
+    await show(
+        callback,
+        format_tools_card(node.name, tools),
+        node_card_keyboard(node.system_id),
     )
 
-    await callback.message.edit_text(
-        "⚙️ <b>Выбор узлов</b>\n\n"
-        "Выберите один или несколько узлов:",
-        reply_markup=nodes_selection_keyboard(
-            nodes,
-            set(),
-        ),
-    )
 
-    await callback.answer()
-
-
-@router.callback_query(
-    lambda callback: callback.data.startswith(
-        "tools:select_node:"
-    )
-)
+@router.callback_query(ToolsCB.filter(F.action == 'select_node'))
 async def toggle_node_selection(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
-    node_id = int(
-        callback.data.split(":")[-1]
-    )
+    """Переключает выбор узла в FSM-состоянии."""
+    if (node_id := unpack_id(callback, ToolsCB)) is None:
+        await alert(callback, NODE_NOT_FOUND)
+        return
 
-    node = await get_node(
-        session,
-        node_id,
-    )
+    node = await get_node_or_alert(session, callback, node_id)
 
-    if node is None or not node.is_active:
-        await callback.answer(
-            "Узел не найден.",
-            show_alert=True,
-        )
+    if node is None:
         return
 
     data = await state.get_data()
 
-    selected_ids = set(
-        data.get(
-            "selected_node_ids",
-            [],
-        )
-    )
+    selected_ids = set(data.get('selected_node_ids', []))
 
     if node_id in selected_ids:
         selected_ids.remove(node_id)
     else:
         selected_ids.add(node_id)
 
-    await state.update_data(
-        selected_node_ids=list(selected_ids)
+    await state.update_data(selected_node_ids=list(selected_ids))
+
+    nodes = await get_all_tool_nodes(session)
+
+    await refresh(
+        callback,
+        nodes_selection_keyboard(nodes, selected_ids),
     )
 
-    nodes = await get_all_tool_nodes(
-        session,
-    )
 
-    await callback.message.edit_reply_markup(
-        reply_markup=nodes_selection_keyboard(
-            nodes,
-            selected_ids,
-        )
-    )
-
-    await callback.answer()
-
-
-@router.callback_query(
-    lambda callback: callback.data == "tools:nodes:confirm"
-)
+@router.callback_query(ToolsCB.filter(F.action == 'confirm_nodes'))
 async def confirm_nodes_selection(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
+    """Показывает сводную карточку по выбранным узлам."""
     data = await state.get_data()
 
-    selected_ids = data.get(
-        "selected_node_ids",
-        [],
-    )
+    selected_ids = data.get('selected_node_ids', [])
 
     if not selected_ids:
-        await callback.answer(
-            "Выберите хотя бы один узел.",
-            show_alert=True,
-        )
+        await alert(callback, 'Выберите хотя бы один узел.')
         return
 
-    tools = await get_tools_for_nodes(
-        session,
-        selected_ids,
+    tools = await get_tools_for_nodes(session, selected_ids)
+
+    back_keyboard = tool_card_keyboard(
+        back_callback=ToolsCB(
+            action='category',
+            category='nodes',
+        ).pack(),
     )
 
     if not tools:
-        await callback.message.edit_text(
-            "⚙️ <b>Результат</b>\n\n"
-            "Для выбранных узлов инструмент пока "
-            "не назначен.",
-            reply_markup=tool_card_keyboard(
-                back_callback="tools:category:nodes"
-            ),
+        await show(
+            callback,
+            '⚙️ <b>Результат</b>\n\n'
+            'Для выбранных узлов инструмент пока не назначен.',
+            back_keyboard,
         )
-
         await state.clear()
-        await callback.answer()
         return
 
-    text = format_tools_card(
-        "Инструмент для выбранных узлов",
-        tools,
+    await show(
+        callback,
+        format_tools_card('Инструмент для выбранных узлов', tools),
+        back_keyboard,
     )
-
-    await callback.message.edit_text(
-        text,
-        reply_markup=tool_card_keyboard(
-            back_callback="tools:category:nodes"
-        ),
-    )
-
     await state.clear()
 
-    await callback.answer()
 
-
-@router.callback_query(
-    lambda callback: callback.data.startswith(
-        "tools:node:"
-    )
-)
-async def open_tool_node(
-    callback: CallbackQuery,
-    session: AsyncSession,
-) -> None:
-    node_id = int(
-        callback.data.split(":")[-1]
-    )
-
-    node = await get_node(
-        session,
-        node_id,
-    )
-
-    if node is None or not node.is_active:
-        await callback.answer(
-            "Узел не найден.",
-            show_alert=True,
-        )
-        return
-
-    tools = [
-        tool
-        for tool in node.tools
-        if tool.is_active
-    ]
-
-    text = format_tools_card(
-        node.name,
-        tools,
-    )
-
-    await callback.message.edit_text(
-        text,
-        reply_markup=node_card_keyboard(
-            node.system_id
-        ),
-    )
-
-    await callback.answer()
-
-
-@router.callback_query(
-    lambda callback: callback.data.startswith(
-        "tools:back:nodes:"
-    )
-)
+@router.callback_query(ToolsCB.filter(F.action == 'back_nodes'))
 async def back_to_nodes(
     callback: CallbackQuery,
     session: AsyncSession,
 ) -> None:
-    system_id = int(
-        callback.data.split(":")[-1]
-    )
+    """Возвращается к экрану выбора узлов."""
+    if (system_id := unpack_id(callback, ToolsCB)) is None:
+        await alert(callback, CATEGORY_NOT_FOUND)
+        return
 
-    system = await get_system(
+    system = await get_system_or_alert(
         session,
+        callback,
         system_id,
+        not_found=CATEGORY_NOT_FOUND,
     )
 
-    if system is None or not system.is_active:
-        await callback.answer(
-            "Категория не найдена.",
-            show_alert=True,
-        )
+    if system is None:
         return
 
-    nodes = await get_nodes(
-        session,
-        system.id,
-    )
-
-    if not nodes:
-        await callback.message.edit_text(
-            f"🧰 <b>{system.name}</b>\n\n"
-            "В этой категории пока нет узлов.",
-            reply_markup=tool_card_keyboard(),
-        )
-
-        await callback.answer()
-        return
-
-    await callback.message.edit_text(
-        f"🧰 <b>{system.name}</b>\n\n"
-        "Выберите узел:",
-        reply_markup=nodes_keyboard(nodes),
-    )
-
-    await callback.answer()
+    await show_system_nodes(callback, session, system)
 
 
-@router.callback_query(
-    lambda callback: callback.data == "tools:back:categories"
-)
+@router.callback_query(ToolsCB.filter(F.action == 'back_categories'))
 async def back_to_tools_categories(
     callback: CallbackQuery,
 ) -> None:
-    await callback.message.edit_text(
-        "🧰 <b>Инструмент</b>\n\n"
-        "Выберите категорию:",
-        reply_markup=tools_categories_keyboard(),
-    )
-
-    await callback.answer()
+    """Возвращается к категориям инструментов."""
+    await show_tools_categories(callback)

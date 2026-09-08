@@ -6,12 +6,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 from app.database.models.node import node_tools
 
+
 if TYPE_CHECKING:
     from app.database.models.node import Node
 
 
 class Tool(Base):
-    __tablename__ = "tools"
+    """Инструмент для диагностики."""
+
+    __tablename__ = 'tools'
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -40,7 +43,7 @@ class Tool(Base):
         nullable=False,
     )
 
-    nodes: Mapped[list["Node"]] = relationship(
+    nodes: Mapped[list['Node']] = relationship(
         secondary=node_tools,
-        back_populates="tools",
+        back_populates='tools',
     )

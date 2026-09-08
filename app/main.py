@@ -17,6 +17,7 @@ from app.config import get_settings
 
 
 async def main() -> None:
+    """Точка входа: запускает long polling бота."""
     settings = get_settings()
 
     bot = Bot(
@@ -46,5 +47,5 @@ async def main() -> None:
         await bot.session.close()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())

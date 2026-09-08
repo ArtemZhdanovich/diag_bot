@@ -12,7 +12,9 @@ if TYPE_CHECKING:
 
 
 class Problem(Base):
-    __tablename__ = "problems"
+    """Проблема в рамках системы диагностики."""
+
+    __tablename__ = 'problems'
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -20,7 +22,7 @@ class Problem(Base):
     )
 
     system_id: Mapped[int] = mapped_column(
-        ForeignKey("systems.id", ondelete="CASCADE"),
+        ForeignKey('systems.id', ondelete='CASCADE'),
         nullable=False,
     )
 
@@ -41,13 +43,13 @@ class Problem(Base):
         nullable=False,
     )
 
-    system: Mapped["System"] = relationship(
-        "System",
-        back_populates="problems",
+    system: Mapped['System'] = relationship(
+        'System',
+        back_populates='problems',
     )
 
-    causes: Mapped[list["Cause"]] = relationship(
-        "Cause",
-        back_populates="problem",
-        cascade="all, delete-orphan",
+    causes: Mapped[list['Cause']] = relationship(
+        'Cause',
+        back_populates='problem',
+        cascade='all, delete-orphan',
     )

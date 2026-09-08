@@ -12,23 +12,25 @@ if TYPE_CHECKING:
 
 
 node_tools = Table(
-    "node_tools",
+    'node_tools',
     Base.metadata,
     Column(
-        "node_id",
-        ForeignKey("nodes.id", ondelete="CASCADE"),
+        'node_id',
+        ForeignKey('nodes.id', ondelete='CASCADE'),
         primary_key=True,
     ),
     Column(
-        "tool_id",
-        ForeignKey("tools.id", ondelete="CASCADE"),
+        'tool_id',
+        ForeignKey('tools.id', ondelete='CASCADE'),
         primary_key=True,
     ),
 )
 
 
 class Node(Base):
-    __tablename__ = "nodes"
+    """Узел системы с привязанными инструментами."""
+
+    __tablename__ = 'nodes'
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -36,7 +38,7 @@ class Node(Base):
     )
 
     system_id: Mapped[int] = mapped_column(
-        ForeignKey("systems.id", ondelete="CASCADE"),
+        ForeignKey('systems.id', ondelete='CASCADE'),
         nullable=False,
         index=True,
     )
@@ -58,13 +60,13 @@ class Node(Base):
         nullable=False,
     )
 
-    system: Mapped["System"] = relationship(
-        "System",
-        back_populates="nodes",
+    system: Mapped['System'] = relationship(
+        'System',
+        back_populates='nodes',
     )
 
-    tools: Mapped[list["Tool"]] = relationship(
-        "Tool",
+    tools: Mapped[list['Tool']] = relationship(
+        'Tool',
         secondary=node_tools,
-        back_populates="nodes",
+        back_populates='nodes',
     )

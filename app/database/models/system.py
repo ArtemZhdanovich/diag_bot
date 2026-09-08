@@ -12,7 +12,9 @@ if TYPE_CHECKING:
 
 
 class System(Base):
-    __tablename__ = "systems"
+    """Система диагностики или инструментов."""
+
+    __tablename__ = 'systems'
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -41,14 +43,14 @@ class System(Base):
         nullable=False,
     )
 
-    problems: Mapped[list["Problem"]] = relationship(
-        "Problem",
-        back_populates="system",
-        cascade="all, delete-orphan",
+    problems: Mapped[list['Problem']] = relationship(
+        'Problem',
+        back_populates='system',
+        cascade='all, delete-orphan',
     )
 
-    nodes: Mapped[list["Node"]] = relationship(
-        "Node",
-        back_populates="system",
-        cascade="all, delete-orphan",
+    nodes: Mapped[list['Node']] = relationship(
+        'Node',
+        back_populates='system',
+        cascade='all, delete-orphan',
     )

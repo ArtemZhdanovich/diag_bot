@@ -8,6 +8,7 @@ async def get_problems(
     session: AsyncSession,
     system_id: int,
 ) -> list[Problem]:
+    """Активные проблемы системы по возрастанию порядка."""
     result = await session.scalars(
         select(Problem)
         .where(
@@ -24,4 +25,5 @@ async def get_problem(
     session: AsyncSession,
     problem_id: int,
 ) -> Problem | None:
+    """Активная проблема по id или None."""
     return await session.get(Problem, problem_id)

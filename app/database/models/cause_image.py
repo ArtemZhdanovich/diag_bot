@@ -11,7 +11,9 @@ if TYPE_CHECKING:
 
 
 class CauseImage(Base):
-    __tablename__ = "cause_images"
+    """Изображение карточки причины."""
+
+    __tablename__ = 'cause_images'
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -20,8 +22,8 @@ class CauseImage(Base):
 
     card_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "cause_cards.id",
-            ondelete="CASCADE",
+            'cause_cards.id',
+            ondelete='CASCADE',
         ),
         nullable=False,
     )
@@ -42,7 +44,7 @@ class CauseImage(Base):
         nullable=False,
     )
 
-    card: Mapped["CauseCard"] = relationship(
-        "CauseCard",
-        back_populates="images",
+    card: Mapped['CauseCard'] = relationship(
+        'CauseCard',
+        back_populates='images',
     )
