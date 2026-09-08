@@ -58,6 +58,54 @@ BOT_TOKEN=<токен> ADMIN_IDS=<id> uv run python -m app.main
 
 `DATABASE_URL` по умолчанию — `sqlite+aiosqlite:///./diagnostic_bot.db`.
 
+## База данных и миграции
+
+Файл SQLite создавать вручную не нужно — он появляется автоматически
+при первом применении миграций (`alembic upgrade head`). Миграции
+живут в `migrations/versions/`, `migrations/env.py` берёт схему из
+`app.database.models`, а URL БД — из настройки `DATABASE_URL`.
+
+**Первый запуск (создать базу и накатить схему):**
+
+```bash
+uv run alembic upgrade head
+```
+
+**Создать новую миграцию** (после изменения моделей в
+`app/database/models/`):
+
+```bash
+# 1. Сгенерировать миграцию по разнице моделей и схемы БД
+uv run alembic revision --autogenerate -m 'описание изменений'
+
+# 2. Просмотреть сгенерированный файл в migrations/versions/
+
+# 3. Проверить, что схемы моделей и БД согласованы
+uv run alembic check
+
+# 4. Накатить
+uv run alembic upgrade head
+```
+
+> Для чистого autogenerate база должна быть актуальна
+> (на последней ревизии): сначала `uv run alembic upgrade head`,
+> затем `alembic revision --autogenerate`.
+
+**Полезные команды:**
+
+```bash
+uv run alembic current      # текущая ревизия БД
+uv run alembic history      # история миграций
+uv run alembic downgrade -1 # откатить последнюю миграцию
+```
+
+**Демо-данные** (опционально, после применения миграций):
+
+```bash
+uv run python -m app.database.seed        # системы, проблемы, причины
+uv run python -m app.database.seed_tools  # инструменты
+```
+
 ## Проверки и текущее состояние
 
 После полного ревью (P0/P1 исправлены) и DRY-рефакторинга:
