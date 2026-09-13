@@ -35,6 +35,21 @@ async def get_system(
     )
 
 
+async def get_system_by_slug(
+    session: AsyncSession,
+    slug: str,
+) -> System | None:
+    """Активная система по slug."""
+    system: System | None = await session.scalar(
+        select(System).where(
+            System.slug == slug,
+            System.is_active.is_(True),
+        )
+    )
+
+    return system
+
+
 async def create_system(
     session: AsyncSession,
     name: str,

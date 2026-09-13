@@ -7,6 +7,7 @@ from aiogram.enums import ParseMode
 
 from app.bot.handlers import (
     admin,
+    admin_tools,
     diagnosis,
     navigation,
     start,
@@ -36,6 +37,7 @@ async def main() -> None:
     dp.include_router(diagnosis.router)
     dp.include_router(tools.router)
     dp.include_router(admin.router)
+    dp.include_router(admin_tools.router)
 
     logging.basicConfig(
         level=logging.INFO,

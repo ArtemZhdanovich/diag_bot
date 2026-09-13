@@ -1,9 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import BigInteger, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
+
+
+def _utcnow() -> datetime:
+    """Текущее время в UTC (timezone-aware)."""
+    return datetime.now(timezone.utc)
 
 
 class User(Base):
@@ -31,5 +36,5 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=_utcnow,
     )

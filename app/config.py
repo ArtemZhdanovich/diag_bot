@@ -1,4 +1,4 @@
-from functools import lru_cache
+from functools import cached_property, lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
         extra='ignore',
     )
 
-    @property
+    @cached_property
     def admin_id_list(self) -> list[int]:
         """Список id администраторов из строки ADMIN_IDS."""
         return [

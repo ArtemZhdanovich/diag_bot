@@ -10,49 +10,18 @@ from app.database.repositories.node import (
     get_active_nodes_by_ids,
     get_tool_nodes,
 )
-from app.database.repositories.system import get_systems
+from app.database.repositories.system import get_system_by_slug
 from app.database.repositories.tool import get_tools
-
-
-CATEGORY_NAMES = {
-    'loading': 'Гидросистема погрузочного оборудования',
-    'steering': 'Гидросистема рулевого управления',
-    'brakes': 'Гидросистема тормозов',
-}
 
 
 async def get_tool_system(
     session: AsyncSession,
     category: str,
 ) -> System | None:
-    """Активная система-инструмент по ключу категории."""
-    category_name = CATEGORY_NAMES.get(category)
-
-    if category_name is None:
-        return None
-
-    systems = await get_systems(
+    """Активная система-инструмент по slug категории."""
+    return await get_system_by_slug(
         session,
-        'tool',
-    )
-
-    return next(
-        (
-            system
-            for system in systems
-            if system.name == category_name
-        ),
-        None,
-    )
-
-
-async def get_all_tool_systems(
-    session: AsyncSession,
-) -> list[System]:
-    """Все активные системы-инструменты по порядку."""
-    return await get_systems(
-        session,
-        'tool',
+        category,
     )
 
 

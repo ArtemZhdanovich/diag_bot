@@ -1,8 +1,14 @@
 from html import escape as esc
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InaccessibleMessage
+from aiogram.types import (
+    CallbackQuery,
+    InaccessibleMessage,
+    InputMedia,
+    InputMediaPhoto,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.callbacks import DiagnosisCB, MenuCB
@@ -196,6 +202,11 @@ async def open_cause_card(
     if cause is None:
         return
 
+    data = await state.get_data()
+
+    previous_cause_id = data.get('cause_id')
+    images_sent = data.get('images_sent', False)
+
     await state.update_data(
         cause_id=cause_id,
         cause_name=cause.name,
@@ -209,15 +220,39 @@ async def open_cause_card(
         await alert(callback, 'Сообщение недоступно.')
         return
 
-    for image in images:
-        await message.answer_photo(
-            photo=image.telegram_file_id,
-            caption=(
-                esc(image.caption)
-                if image.caption
-                else None
-            ),
-        )
+    # Фото отправляем только при первом открытии карточки,
+    # чтобы повторное нажатие кнопки не дублировало сообщения.
+    if images and not (images_sent and previous_cause_id == cause_id):
+        media: list[InputMedia] = [
+            InputMediaPhoto(
+                media=image.telegram_file_id,
+                caption=(
+                    esc(image.caption)
+                    if image.caption
+                    else None
+                ),
+            )
+            for image in images
+        ]
+
+        try:
+            # InputMediaPhoto — подтип ожидаемого union-типа, но list
+            # инвариантен, поэтому mypy требует явного игнорирования.
+            await message.answer_media_group(media)  # type: ignore[arg-type]
+        except TelegramBadRequest:
+            # Если media group не удалась (например, файл недоступен),
+            # отправляем фото по одному.
+            for image in images:
+                await message.answer_photo(
+                    photo=image.telegram_file_id,
+                    caption=(
+                        esc(image.caption)
+                        if image.caption
+                        else None
+                    ),
+                )
+
+        await state.update_data(images_sent=True)
 
     await show(
         callback,

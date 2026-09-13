@@ -26,6 +26,12 @@ class System(Base):
         nullable=False,
     )
 
+    slug: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        unique=True,
+    )
+
     type: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

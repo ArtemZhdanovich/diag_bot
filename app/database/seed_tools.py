@@ -27,18 +27,21 @@ async def seed_tools() -> None:
 
         loading = System(
             name='Гидросистема погрузочного оборудования',
+            slug='loading',
             type='tool',
             sort_order=1,
         )
 
         steering = System(
             name='Гидросистема рулевого управления',
+            slug='steering',
             type='tool',
             sort_order=2,
         )
 
         brakes = System(
             name='Гидросистема тормозов',
+            slug='brakes',
             type='tool',
             sort_order=3,
         )

@@ -60,6 +60,7 @@ from app.services.tools import format_tools_card, get_tools_for_nodes
 pytestmark = pytest.mark.asyncio
 
 
+
 @pytest_asyncio.fixture
 async def session_factory():
     engine = create_async_engine("sqlite+aiosqlite://")
@@ -360,3 +361,253 @@ async def test_stack_puts_each_button_in_its_own_row():
 
 async def test_system_not_found_constant_is_used_by_helpers():
     assert SYSTEM_NOT_FOUND == "Система не найдена."
+
+
+async def test_get_or_create_user_creates_and_updates(session_factory):
+    from app.database.repositories.user import (
+        count_users,
+        get_or_create_user,
+        get_users,
+    )
+
+    async with session_factory() as session:
+        user = await get_or_create_user(
+            session, telegram_id=100, username="a", first_name="A"
+        )
+        await session.commit()
+
+        assert user.id is not None
+        assert await count_users(session) == 1
+
+        # Повторный вызов обновляет профиль, а не создаёт дубль.
+        updated = await get_or_create_user(
+            session, telegram_id=100, username="b", first_name="B"
+        )
+        await session.commit()
+
+        assert updated.id == user.id
+        assert updated.username == "b"
+        assert await count_users(session) == 1
+        assert len(await get_users(session)) == 1
+
+
+async def test_problem_lifecycle(session_factory):
+    from app.database.repositories.problem import (
+        create_problem,
+        deactivate_problem,
+        delete_problem,
+        get_inactive_problems,
+        get_problem,
+        get_problems,
+        restore_problem,
+        update_problem,
+    )
+
+    async with session_factory() as session:
+        system = System(name="S", type="diagnosis", sort_order=1)
+        session.add(system)
+        await session.flush()
+
+        problem = await create_problem(session, system.id, "P", 1)
+        await session.commit()
+
+        names = [p.name for p in await get_problems(session, system.id)]
+        assert names == ["P"]
+
+        await deactivate_problem(session, problem)
+        await session.commit()
+        assert await get_problems(session, system.id) == []
+        assert len(await get_inactive_problems(session, system.id)) == 1
+
+        await restore_problem(session, problem)
+        await session.commit()
+        assert problem.is_active is True
+
+        updated = await update_problem(session, problem, "P2", 5)
+        await session.commit()
+        assert updated.name == "P2"
+        assert updated.sort_order == 5
+
+        await delete_problem(session, updated)
+        await session.commit()
+        assert await get_problem(session, updated.id) is None
+
+
+async def test_cause_lifecycle(session_factory):
+    from app.database.repositories.cause import (
+        create_cause,
+        deactivate_cause,
+        delete_cause,
+        get_cause,
+        get_causes,
+        get_inactive_causes,
+        restore_cause,
+        update_cause,
+    )
+
+    async with session_factory() as session:
+        system = System(name="S", type="diagnosis", sort_order=1)
+        session.add(system)
+        await session.flush()
+
+        problem = Problem(system_id=system.id, name="P", sort_order=1)
+        session.add(problem)
+        await session.flush()
+
+        cause = await create_cause(session, problem.id, "C", 1)
+        await session.commit()
+
+        names = [c.name for c in await get_causes(session, problem.id)]
+        assert names == ["C"]
+
+        await deactivate_cause(session, cause)
+        await session.commit()
+        assert await get_causes(session, problem.id) == []
+        assert len(await get_inactive_causes(session, problem.id)) == 1
+
+        await restore_cause(session, cause)
+        await session.commit()
+        assert cause.is_active is True
+
+        updated = await update_cause(session, cause, "C2", 3)
+        await session.commit()
+        assert updated.name == "C2"
+
+        await delete_cause(session, updated)
+        await session.commit()
+        assert await get_cause(session, updated.id) is None
+
+
+async def test_card_create_update_and_add_image(session_factory):
+    from app.database.repositories.cause_card import (
+        add_image,
+        create_card,
+        get_card_by_cause,
+        update_card,
+    )
+
+    async with session_factory() as session:
+        system = System(name="S", type="diagnosis", sort_order=1)
+        session.add(system)
+        await session.flush()
+
+        problem = Problem(system_id=system.id, name="P", sort_order=1)
+        session.add(problem)
+        await session.flush()
+
+        cause = Cause(problem_id=problem.id, name="C", sort_order=1)
+        session.add(cause)
+        await session.flush()
+
+        card = await create_card(session, cause.id, description="D")
+        await session.commit()
+
+        found = await get_card_by_cause(session, cause.id)
+        assert found is not None
+        assert found.description == "D"
+        assert found.images == []
+
+        await add_image(session, card.id, telegram_file_id="f1", sort_order=0)
+        await session.commit()
+
+        # expire_on_commit=False: сбрасываем кэш отношений.
+        session.expire(found)
+        found = await get_card_by_cause(session, cause.id)
+        assert len(found.images) == 1
+        assert found.images[0].telegram_file_id == "f1"
+
+        await update_card(
+            session,
+            found,
+            description="D2",
+            inspection="I",
+            recommendation="R",
+        )
+        await session.commit()
+
+        session.expire(found)
+        found = await get_card_by_cause(session, cause.id)
+        assert found.description == "D2"
+        assert found.inspection == "I"
+        assert found.recommendation == "R"
+
+
+async def test_tool_and_node_lifecycle(session_factory):
+    from app.database.repositories.node import (
+        create_node,
+        deactivate_node,
+        delete_node,
+        get_inactive_nodes,
+        get_nodes,
+        restore_node,
+        update_node,
+    )
+    from app.database.repositories.tool import (
+        create_tool,
+        deactivate_tool,
+        delete_tool,
+        get_inactive_tools,
+        get_tools,
+        restore_tool,
+        update_tool,
+    )
+
+    async with session_factory() as session:
+        system = System(name="L", type="tool", sort_order=1)
+        session.add(system)
+        await session.flush()
+
+        tool = await create_tool(session, "T", description="D", sort_order=1)
+        node = await create_node(session, system.id, "N", 1)
+        await session.commit()
+
+        assert [t.name for t in await get_tools(session)] == ["T"]
+        assert [n.name for n in await get_nodes(session, system.id)] == ["N"]
+
+        await deactivate_tool(session, tool)
+        await deactivate_node(session, node)
+        await session.commit()
+        assert await get_tools(session) == []
+        assert await get_nodes(session, system.id) == []
+        assert len(await get_inactive_tools(session)) == 1
+        assert len(await get_inactive_nodes(session, system.id)) == 1
+
+        await restore_tool(session, tool)
+        await restore_node(session, node)
+        await session.commit()
+        assert tool.is_active is True
+        assert node.is_active is True
+
+        await update_tool(session, tool, "T2", None, 2)
+        await update_node(session, node, "N2", 2)
+        await session.commit()
+        assert tool.name == "T2"
+        assert tool.description is None
+        assert node.name == "N2"
+
+        await delete_node(session, node)
+        await delete_tool(session, tool)
+        await session.commit()
+        assert await get_tools(session) == []
+        assert await get_nodes(session, system.id) == []
+
+
+async def test_get_system_by_slug(session_factory):
+    from app.database.repositories.system import get_system_by_slug
+
+    async with session_factory() as session:
+        active = System(
+            name="Активная", type="tool", slug="loading", sort_order=1
+        )
+        inactive = System(
+            name="Отключённая",
+            type="tool",
+            slug="brakes",
+            is_active=False,
+        )
+        session.add_all([active, inactive])
+        await session.commit()
+
+        assert (await get_system_by_slug(session, "loading")) is not None
+        assert (await get_system_by_slug(session, "brakes")) is None
+        assert (await get_system_by_slug(session, "missing")) is None
